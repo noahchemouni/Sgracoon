@@ -1,0 +1,644 @@
+<!doctype html>
+<html lang="fr">
+<head>
+<meta charset="utf-8">
+<title>La Racoon Mobile</title>
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Bricolage+Grotesque:opsz,wdth,wght@12..96,75..100,300..800&family=Instrument+Sans:wght@400;500;600&display=swap" rel="stylesheet">
+<style>
+:root{
+  box-sizing:border-box;
+  padding-top:env(safe-area-inset-top,0px);
+  padding-bottom:env(safe-area-inset-bottom,0px);
+  --bg:#E8EBE7;
+  --surface:#F4F6F3;
+  --ink:#14181B;
+  --muted:#5F686F;
+  --line:#CBD1CC;
+  --board:#1B2127;
+  --board-ink:#E9ECE8;
+  --board-muted:#8C959C;
+  --amber:#FFB224;
+  --amber-ink:#3A2600;
+  --ok:#256B5A;
+  --ok-bg:#D5E8E1;
+  --bad:#A8412C;
+  --bad-bg:#F0D9D2;
+  --focus:#1D5FD1;
+  --display:"Bricolage Grotesque",ui-sans-serif,system-ui,sans-serif;
+  --body:"Instrument Sans",ui-sans-serif,system-ui,sans-serif;
+}
+@media (prefers-color-scheme:dark){
+  :root:not([data-theme="light"]){
+    --bg:#13171A;--surface:#1B2024;--ink:#E8EBE7;--muted:#9AA3A9;--line:#2D353B;
+    --board:#0C0F11;--ok:#7CCDB7;--ok-bg:#1B3A32;--bad:#E58A72;--bad-bg:#3B221B;--focus:#7FA9F5;
+  }
+}
+:root[data-theme="dark"]{
+  --bg:#13171A;--surface:#1B2024;--ink:#E8EBE7;--muted:#9AA3A9;--line:#2D353B;
+  --board:#0C0F11;--ok:#7CCDB7;--ok-bg:#1B3A32;--bad:#E58A72;--bad-bg:#3B221B;--focus:#7FA9F5;
+}
+*,*::before,*::after{box-sizing:inherit}
+html{scroll-padding-top:env(safe-area-inset-top,0px)}
+body{margin:0;background:var(--bg);color:var(--ink);font-family:var(--body);font-size:16px;line-height:1.5;-webkit-font-smoothing:antialiased}
+button,select,input{font:inherit;color:inherit}
+:focus-visible{outline:3px solid var(--focus);outline-offset:2px}
+.wrap{max-width:880px;margin:0 auto;padding:20px 18px 64px}
+h1,h2,h3{font-family:var(--display);margin:0;line-height:1.1;letter-spacing:-0.01em}
+
+/* barre du haut */
+.top{display:flex;align-items:center;justify-content:space-between;gap:12px;flex-wrap:wrap;margin-bottom:22px}
+.brand{display:flex;align-items:center;gap:10px;font-family:var(--display);font-weight:700;font-size:22px;font-stretch:80%}
+.brand svg{width:38px;height:38px;flex:none}
+.tabs{display:flex;gap:4px}
+.tab{background:none;border:0;padding:8px 12px;border-bottom:3px solid transparent;cursor:pointer;color:var(--muted);font-weight:500}
+.tab[aria-selected="true"]{color:var(--ink);border-bottom-color:var(--amber)}
+
+/* tableau de départ */
+.board{background:var(--board);color:var(--board-ink);border-radius:6px;padding:26px 26px 22px;display:grid;grid-template-columns:minmax(0,1fr) minmax(0,1fr);gap:20px 32px;
+  background-image:radial-gradient(rgba(255,255,255,.055) 1px,transparent 1.4px);background-size:7px 7px}
+.board .when{font-family:var(--display);font-stretch:75%;font-weight:700;font-size:clamp(68px,17vw,128px);line-height:.9;color:var(--amber);letter-spacing:-0.02em}
+.board .day{font-size:18px;color:var(--board-ink);margin-top:10px;font-weight:500}
+.board .label{color:var(--board-muted);font-size:14px}
+.board .state{font-family:var(--display);font-stretch:85%;font-weight:600;font-size:24px;line-height:1.2;margin:2px 0 14px}
+.lights{display:flex;gap:10px;margin:8px 0 6px;flex-wrap:wrap}
+.light{width:22px;height:22px;border-radius:50%;border:2px solid var(--board-muted);background:transparent}
+.light.on{background:var(--amber);border-color:var(--amber)}
+.light.me{box-shadow:0 0 0 3px var(--board),0 0 0 5px var(--board-ink)}
+.board .mine{margin-top:12px;font-size:15px}
+.board.empty{grid-template-columns:1fr}
+.board.empty .state{font-size:28px;margin:0}
+@media (max-width:620px){.board{grid-template-columns:1fr;padding:20px}}
+
+/* sections */
+section{margin-top:40px}
+section>h2{font-size:26px;font-stretch:85%;font-weight:700;margin-bottom:4px}
+.sub{color:var(--muted);margin:0 0 14px;max-width:62ch}
+.day-h{font-family:var(--display);font-weight:600;font-size:18px;margin:22px 0 4px}
+.row{display:grid;grid-template-columns:76px minmax(0,1fr) auto;gap:6px 14px;align-items:center;padding:14px 0;border-top:1px solid var(--line)}
+.row:last-child{border-bottom:1px solid var(--line)}
+.row .t{font-family:var(--display);font-stretch:80%;font-weight:700;font-size:26px}
+.row .st{min-width:0}
+.row .st small{display:block;color:var(--muted)}
+.row.past{opacity:.55}
+@media (max-width:560px){.row{grid-template-columns:62px minmax(0,1fr)}.row .act{grid-column:1/-1}}
+
+.btn{border:1.5px solid var(--ink);background:transparent;border-radius:4px;padding:9px 16px;font-weight:600;cursor:pointer}
+.btn:hover{background:var(--ink);color:var(--bg)}
+.btn.primary{background:var(--amber);border-color:var(--amber);color:var(--amber-ink)}
+.btn.primary:hover{background:var(--ink);border-color:var(--ink);color:var(--amber)}
+.btn[disabled]{opacity:.45;cursor:not-allowed}
+.btn.sm{padding:5px 11px;font-size:14px}
+.tag{display:inline-block;border-radius:3px;padding:1px 8px;font-size:13px;font-weight:600;background:var(--line);color:var(--ink)}
+.tag.ok{background:var(--ok-bg);color:var(--ok)}
+.tag.bad{background:var(--bad-bg);color:var(--bad)}
+.tag.sub{background:var(--amber);color:var(--amber-ink)}
+
+details.res{margin-top:6px}
+details.res summary{cursor:pointer;color:var(--muted);font-size:14px;width:max-content}
+ol.rank{margin:8px 0 0;padding:0;list-style:none;display:grid;gap:4px;font-size:15px}
+ol.rank li{display:flex;gap:10px;align-items:baseline;flex-wrap:wrap}
+ol.rank .n{width:1.6em;font-family:var(--display);font-weight:700;color:var(--muted)}
+ol.rank .sep{border-top:1px dashed var(--line);margin:4px 0;padding-top:4px;color:var(--muted);font-size:13px}
+ol.rank .when{color:var(--muted);font-size:13px}
+
+/* compte */
+.acct{display:grid;grid-template-columns:repeat(auto-fit,minmax(200px,1fr));gap:18px 32px;margin:12px 0 6px}
+.acct .k{color:var(--muted);font-size:14px}
+.acct .v{font-family:var(--display);font-stretch:85%;font-size:24px;font-weight:700}
+.hist{width:100%;border-collapse:collapse;margin-top:14px;font-size:15px}
+.hist th{text-align:left;font-weight:500;color:var(--muted);padding:6px 8px 6px 0;border-bottom:1px solid var(--line)}
+.hist td{padding:9px 8px 9px 0;border-bottom:1px solid var(--line)}
+.hist td.r,.hist th.r{text-align:right}
+.hist tfoot td{font-weight:700;border-bottom:0}
+.table-scroll{overflow-x:auto}
+
+/* conducteur */
+.seg{display:inline-flex;border:1.5px solid var(--ink);border-radius:4px;overflow:hidden}
+.seg button{border:0;background:transparent;padding:7px 13px;cursor:pointer;font-weight:500}
+.seg button+button{border-left:1.5px solid var(--ink)}
+.seg button[aria-pressed="true"]{background:var(--ink);color:var(--bg)}
+.seg button.go[aria-pressed="true"]{background:var(--ok);color:#fff}
+.seg button[disabled]{opacity:.45;cursor:not-allowed}
+.drow{display:flex;align-items:center;gap:14px;flex-wrap:wrap;padding:10px 0;border-top:1px solid var(--line)}
+.drow .t{font-family:var(--display);font-stretch:80%;font-weight:700;font-size:22px;width:64px}
+.drow .meta{color:var(--muted);font-size:14px}
+.settings{display:grid;grid-template-columns:repeat(auto-fit,minmax(180px,1fr));gap:16px;margin-top:10px}
+.settings label{display:grid;gap:4px;font-size:14px;color:var(--muted)}
+.settings input,select.plan{background:var(--surface);border:1.5px solid var(--line);border-radius:4px;padding:8px 10px;color:var(--ink)}
+.settings input{width:100%}
+.pres{display:flex;gap:4px;margin-left:auto}
+.tripres{margin-top:18px}
+.tripres h3{font-size:18px;font-weight:600;font-stretch:90%}
+.notice{background:var(--surface);border:1.5px dashed var(--line);border-radius:6px;padding:16px 18px;color:var(--muted);margin-top:14px}
+.notice.warn{border-color:var(--bad);color:var(--bad)}
+.empty-s{color:var(--muted);padding:14px 0}
+@media (prefers-reduced-motion:no-preference){.btn,.tab{transition:background .12s,color .12s}}
+</style>
+</head>
+<body>
+<div class="wrap" id="app"></div>
+
+<script>
+/* ---------- constantes ---------- */
+const SLOTS=[{id:'0745',h:7,m:45,label:'7h45'},{id:'1345',h:13,m:45,label:'13h45'}];
+const PLANS=[
+  {id:'none',label:'Sans abonnement'},
+  {id:'carnet',label:'Carnet de 10 trajets'},
+  {id:'mensuel',label:'Abonnement mensuel'},
+  {id:'trimestre',label:'Abonnement trimestriel'}
+];
+const S={
+  cfg:{seats:4,price:0.4,sgHour:'20:00'},
+  trips:{},members:{},requests:{},accounts:{},names:{},
+  db:null,user:null,me:null,canEdit:false,tab:'passager',
+  open:new Set(),freezing:new Set(),loaded:false,lastTick:Date.now()
+};
+
+/* ---------- utilitaires ---------- */
+const pad=n=>String(n).padStart(2,'0');
+const iso=d=>`${d.getFullYear()}-${pad(d.getMonth()+1)}-${pad(d.getDate())}`;
+const tid=(date,slot)=>`${date}_${slot}`;
+const esc=s=>String(s).replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
+const cap=s=>s.charAt(0).toUpperCase()+s.slice(1);
+const eur=n=>new Intl.NumberFormat('fr-FR',{style:'currency',currency:'EUR'}).format(n);
+const slotOf=id=>SLOTS.find(s=>s.id===id);
+function parseDate(date){const [y,m,d]=date.split('-').map(Number);return {y,m,d};}
+function startOf(date,slot){const {y,m,d}=parseDate(date);const s=slotOf(slot);return new Date(y,m-1,d,s.h,s.m);}
+function sgOf(date){const {y,m,d}=parseDate(date);const [hh,mm]=(S.cfg.sgHour||'20:00').split(':').map(Number);return new Date(y,m-1,d-1,hh,mm);}
+function dayLabel(date){const {y,m,d}=parseDate(date);return cap(new Intl.DateTimeFormat('fr-FR',{weekday:'long',day:'numeric',month:'long'}).format(new Date(y,m-1,d)));}
+function hhmm(h){const [a,b]=h.split(':');return `${Number(a)}h${b}`;}
+function dayWord(d){
+  const t=new Date();const a=iso(t);const tm=new Date(t.getFullYear(),t.getMonth(),t.getDate()+1);
+  const key=iso(d);
+  if(key===a)return "aujourd'hui";
+  if(key===iso(tm))return 'demain';
+  return new Intl.DateTimeFormat('fr-FR',{weekday:'long'}).format(d);
+}
+function sgLabel(t){const d=sgOf(t.date);return `${dayWord(d)} à ${hhmm(S.cfg.sgHour)}`;}
+function remaining(ms){
+  if(ms<=0)return 'maintenant';
+  const min=Math.floor(ms/60000);
+  if(min<1)return 'moins d’une minute';
+  const h=Math.floor(min/60),m=min%60;
+  if(h>=24){const d=Math.floor(h/24);return `${d} j ${h%24} h`;}
+  return h?`${h} h ${pad(m)} min`:`${m} min`;
+}
+const baseName=u=>(S.accounts[u]&&S.accounts[u].name)||S.names[u]||'Passager';
+const nameOf=u=>(u===S.me?'Toi':baseName(u));
+const tsLabel=ms=>new Intl.DateTimeFormat('fr-FR',{weekday:'short',hour:'2-digit',minute:'2-digit'}).format(new Date(ms));
+
+/* ---------- logique du SG ---------- */
+const isSub=u=>{const p=S.members[u]&&S.members[u].plan;return !!p&&p!=='none';};
+function rateOf(u){
+  let n=0,p=0;
+  for(const t of Object.values(S.trips)){
+    const v=t.presence&&t.presence[u];
+    if(v===true){n++;p++;}else if(v===false){n++;}
+  }
+  return {n,p,rate:n?p/n:null};
+}
+function ranking(id){
+  const rows=Object.keys(S.requests)
+    .filter(u=>S.requests[u]&&S.requests[u].answers&&S.requests[u].answers[id])
+    .map(u=>({uid:u,ts:S.requests[u].answers[id],sub:isSub(u),rate:rateOf(u).rate??1}));
+  /* 1) abonnés avant les autres 2) réponse la plus rapide 3) meilleur taux de présence */
+  rows.sort((a,b)=>(b.sub-a.sub)||(a.ts-b.ts)||(b.rate-a.rate)||(a.uid<b.uid?-1:1));
+  return rows;
+}
+const sgPassed=t=>!!t.late||Date.now()>=sgOf(t.date).getTime();
+const answersOpen=t=>t.going&&(t.late?Date.now()<startOf(t.date,t.slot).getTime():Date.now()<sgOf(t.date).getTime());
+function liveOutcome(id){
+  const r=ranking(id).map(x=>x.uid);
+  return {confirmed:r.slice(0,S.cfg.seats),waiting:r.slice(S.cfg.seats)};
+}
+function outcome(t,id){
+  if(!t.going)return null;
+  if(t.result)return t.result;
+  if(!sgPassed(t))return null;
+  return liveOutcome(id);
+}
+function seatsOf(t,o){return Math.max(S.cfg.seats,o?o.confirmed.length:0);}
+
+/* ---------- données ---------- */
+let namesTimer=null;
+function refreshNames(){
+  clearTimeout(namesTimer);
+  namesTimer=setTimeout(async()=>{
+    if(!S.user)return;
+    const ids=[...new Set([...Object.keys(S.requests),...Object.keys(S.members),...(S.me?[S.me]:[])])];
+    if(!ids.length)return;
+    try{
+      const ps=await S.user.profiles(ids);
+      let changed=false;
+      for(const id of ids){const n=(ps[id]&&ps[id].name)||'';if(n&&S.names[id]!==n){S.names[id]=n;changed=true;}}
+      if(changed)render();
+    }catch(e){}
+  },150);
+}
+function afterData(){
+  S.loaded=true;
+  if(!S.autoTab&&S.accountsLoaded){S.autoTab=true;if(S.me&&!S.accounts[S.me])S.tab='compte';}
+  render();refreshNames();freezeDue();
+}
+async function freezeDue(){
+  if(!S.canEdit||!S.db)return;
+  for(const [id,t] of Object.entries(S.trips)){
+    if(t.going&&!t.late&&!t.result&&Date.now()>=sgOf(t.date).getTime()&&!S.freezing.has(id)){
+      S.freezing.add(id);
+      try{await S.db.doc('trips/'+id).set({...t,result:liveOutcome(id),price:S.cfg.price});}catch(e){}
+      S.freezing.delete(id);
+    }
+  }
+}
+
+/* ---------- actions ---------- */
+async function toggleRequest(id){
+  if(!S.accounts[S.me]){S.tab='compte';render();return;}
+  const cur={...((S.requests[S.me]&&S.requests[S.me].answers)||{})};
+  if(cur[id])delete cur[id];else cur[id]=Date.now();
+  try{await S.db.doc('requests/'+S.me).set({answers:cur});}catch(e){toast('Impossible d’enregistrer ta demande. Vérifie que tu as bien accès en tant que contributeur.');}
+}
+async function saveAccount(name){
+  name=String(name||'').trim().slice(0,60);
+  if(!name){toast('Indique ton prénom et ton nom pour créer ton compte.');return;}
+  const first=!S.accounts[S.me];
+  try{
+    await S.db.doc('accounts/'+S.me).set({name,createdAt:(S.accounts[S.me]&&S.accounts[S.me].createdAt)||Date.now()});
+    if(first)S.tab='passager';
+    toast(first?'Compte créé.':'Nom enregistré.');
+  }catch(e){toast('Compte non enregistré. Vérifie que tu as bien accès en tant que contributeur.');}
+}
+document.addEventListener('keydown',e=>{if(e.key==='Enter'&&e.target.id==='acct-name')saveAccount(e.target.value);});
+async function setGoing(date,slot,going){
+  const id=tid(date,slot);const t=S.trips[id];
+  const late=Date.now()>=sgOf(date).getTime();
+  try{
+    if(t)await S.db.doc('trips/'+id).update(going?{going:true,late:t.result?false:late}:{going:false});
+    else await S.db.doc('trips/'+id).set({date,slot,going,late});
+  }catch(e){toast('Impossible d’enregistrer ce trajet.');}
+}
+async function setCfg(key,val){
+  try{await S.db.doc('config/main').set({...S.cfg,[key]:val});}catch(e){toast('Réglage non enregistré.');}
+}
+async function setPlan(uid,plan){
+  try{await S.db.doc('members/'+uid).set({plan});}catch(e){toast('Abonnement non enregistré.');}
+}
+async function setPresence(id,uid,val){
+  const t=S.trips[id];if(!t)return;
+  const pr={...(t.presence||{})};
+  if(pr[uid]===val)delete pr[uid];else pr[uid]=val;
+  try{await S.db.doc('trips/'+id).set({...t,presence:pr});}catch(e){toast('Présence non enregistrée.');}
+}
+let toastTimer=null;
+function toast(msg){
+  let el=document.getElementById('toast');
+  if(!el){el=document.createElement('div');el.id='toast';el.setAttribute('role','status');
+    el.style.cssText='position:fixed;left:50%;transform:translateX(-50%);bottom:calc(env(safe-area-inset-bottom,0px) + 18px);background:var(--ink);color:var(--bg);padding:10px 16px;border-radius:4px;max-width:90vw;z-index:10';
+    document.body.appendChild(el);}
+  el.textContent=msg;el.style.display='block';
+  clearTimeout(toastTimer);toastTimer=setTimeout(()=>el.style.display='none',4500);
+}
+
+/* ---------- affichage ---------- */
+const MASK=`<svg viewBox="0 0 48 48" aria-hidden="true"><path d="M7 14 14 5l6 7h8l6-7 7 9-3 14c-1 6-8 11-14 11S11 34 10 28Z" fill="#7D858C"/><path d="M10 25c4-4 9-4 14-1 5-3 10-3 14 1-1 5-6 7-14 6-8 1-13-1-14-6Z" fill="#14181B"/><ellipse cx="17.5" cy="26" rx="2.6" ry="2.2" fill="#F4F6F3"/><ellipse cx="30.5" cy="26" rx="2.6" ry="2.2" fill="#F4F6F3"/><circle cx="24" cy="35" r="2.4" fill="#14181B"/></svg>`;
+
+function upcomingTrips(){
+  const now=Date.now();
+  return Object.entries(S.trips)
+    .map(([id,t])=>({id,t,start:startOf(t.date,t.slot).getTime()}))
+    .filter(x=>x.start>now-60*60000)
+    .sort((a,b)=>a.start-b.start);
+}
+
+function boardHtml(){
+  const next=upcomingTrips().find(x=>x.t.going&&x.start>Date.now());
+  if(!next){
+    return `<div class="board empty"><div><div class="label">Prochain départ</div><div class="state">Aucun trajet annoncé pour l’instant</div><div class="label" style="margin-top:8px">Le conducteur publie ici les trajets de 7h45 et de 13h45.</div></div></div>`;
+  }
+  const {id,t}=next;const o=outcome(t,id);
+  const slot=slotOf(t.slot);
+  let state='',sub='';
+  if(answersOpen(t)){
+    if(t.late){state='Réponses ouvertes jusqu’au départ';sub='Annoncé après l’heure du SG, classement en direct.';}
+    else{state=`SG ${sgLabel(t)}`;sub=`Ouverture des réponses : <span data-until="${sgOf(t.date).getTime()}">${remaining(sgOf(t.date).getTime()-Date.now())}</span> avant le SG`;}
+  }else{state='Résultats du SG publiés';sub='Les places sont attribuées.';}
+  const seats=S.cfg.seats;
+  const confirmed=o?o.confirmed:[];
+  let lights='';
+  for(let i=0;i<Math.max(seats,confirmed.length);i++){
+    const on=i<confirmed.length;
+    const me=on&&confirmed[i]===S.me;
+    lights+=`<span class="light${on?' on':''}${me?' me':''}" title="${on?'Place attribuée':'Place libre'}"></span>`;
+  }
+  const nReq=ranking(id).length;
+  let mine='';
+  if(S.me){
+    if(o){
+      const ci=o.confirmed.indexOf(S.me),wi=o.waiting.indexOf(S.me);
+      if(ci>=0)mine=`Ta place est confirmée (n° ${ci+1}).`;
+      else if(wi>=0)mine=`Tu es en liste d’attente (n° ${wi+1}).`;
+      else mine='Tu n’avais pas demandé de place.';
+    }else{
+      const asked=S.requests[S.me]&&S.requests[S.me].answers&&S.requests[S.me].answers[id];
+      mine=asked?'Ta demande est enregistrée.':'Tu n’as pas encore demandé de place.';
+    }
+  }
+  return `<div class="board">
+    <div><div class="label">Prochain départ</div><div class="when">${slot.label}</div><div class="day">${esc(dayLabel(t.date))}</div></div>
+    <div><div class="state">${esc(state)}</div>
+      <div class="label">${sub}</div>
+      <div class="lights" role="img" aria-label="${confirmed.length} places attribuées sur ${seats}">${lights}</div>
+      <div class="label">${confirmed.length} sur ${seats} places attribuées, ${nReq} demande${nReq>1?'s':''}</div>
+      ${mine?`<div class="mine">${esc(mine)}</div>`:''}
+    </div></div>`;
+}
+
+function who(u,extra){
+  const sub=isSub(u);
+  return `<span>${esc(nameOf(u))}</span> <span class="tag${sub?' sub':''}">${sub?'Abonné':'À la course'}</span>${extra||''}`;
+}
+
+function resultsHtml(id,t,o){
+  const rows=ranking(id);const byUid=Object.fromEntries(rows.map(r=>[r.uid,r]));
+  const open=S.open.has(id)?' open':'';
+  let li='';
+  o.confirmed.forEach((u,i)=>{li+=`<li><span class="n">${i+1}</span>${who(u,byUid[u]?` <span class="when">a répondu ${esc(tsLabel(byUid[u].ts))}</span>`:'')}</li>`;});
+  if(o.waiting.length){
+    li+=`<li class="sep">Liste d’attente</li>`;
+    o.waiting.forEach((u,i)=>{li+=`<li><span class="n">${o.confirmed.length+i+1}</span>${who(u,byUid[u]?` <span class="when">a répondu ${esc(tsLabel(byUid[u].ts))}</span>`:'')}</li>`;});
+  }
+  if(!li)li='<li class="when">Personne n’a demandé de place.</li>';
+  return `<details class="res" data-trip="${esc(id)}"${open}><summary>Voir les résultats du SG</summary><ol class="rank">${li}</ol></details>`;
+}
+
+function passengerHtml(){
+  if(S.me&&S.accountsLoaded&&!S.accounts[S.me]){
+    return `<div class="notice" style="margin-top:28px">Crée ton compte pour demander une place : le conducteur s’en sert pour t’attribuer ton abonnement et le prix de tes trajets.<div style="margin-top:12px"><button class="btn primary" data-act="tab" data-tab="compte">Créer mon compte</button></div></div>`;
+  }
+  const list=upcomingTrips().filter(x=>x.start>Date.now());
+  const byDate={};
+  list.forEach(x=>{(byDate[x.t.date]=byDate[x.t.date]||[]).push(x);});
+  let rows='';
+  for(const date of Object.keys(byDate).sort()){
+    rows+=`<h3 class="day-h">${esc(dayLabel(date))}</h3>`;
+    byDate[date].sort((a,b)=>a.start-b.start).forEach(({id,t})=>{
+      const slot=slotOf(t.slot);
+      if(!t.going){
+        rows+=`<div class="row past"><div class="t">${slot.label}</div><div class="st">Pas de trajet</div></div>`;
+        return;
+      }
+      const o=outcome(t,id);
+      const asked=S.me&&S.requests[S.me]&&S.requests[S.me].answers&&S.requests[S.me].answers[id];
+      let st='',act='';
+      if(o){
+        const ci=S.me?o.confirmed.indexOf(S.me):-1,wi=S.me?o.waiting.indexOf(S.me):-1;
+        if(ci>=0)st=`<span class="tag ok">Place confirmée</span> n° ${ci+1}`;
+        else if(wi>=0)st=`<span class="tag bad">Liste d’attente</span> n° ${wi+1}`;
+        else st='Réponses closes';
+        st+=`<small>${o.confirmed.length} sur ${seatsOf(t,o)} places attribuées</small>`+resultsHtml(id,t,o);
+        if(t.late&&answersOpen(t)){
+          act=`<button class="btn${asked?'':' primary'}" data-act="req" data-id="${esc(id)}"${S.me?'':' disabled'}>${asked?'Retirer ma demande':'Demander une place'}</button>`;
+        }
+      }else{
+        const n=ranking(id).length;
+        st=`${asked?'<span class="tag ok">Demande envoyée</span> ':''}SG ${esc(sgLabel(t))}<small>${n} demande${n>1?'s':''} pour ${S.cfg.seats} places</small>`;
+        act=`<button class="btn${asked?'':' primary'}" data-act="req" data-id="${esc(id)}"${S.me?'':' disabled'}>${asked?'Retirer ma demande':'Demander une place'}</button>`;
+      }
+      rows+=`<div class="row"><div class="t">${slot.label}</div><div class="st">${st}</div><div class="act">${act}</div></div>`;
+    });
+  }
+  if(!rows)rows='<div class="empty-s">Aucun trajet à venir. Reviens quand le conducteur aura publié les prochains départs.</div>';
+
+  return `
+  <section style="margin-top:28px">
+    <h2>Trajets à venir</h2>
+    <p class="sub">Demande ta place avant le SG. À l’heure du SG, les places sont attribuées : les abonnés d’abord, puis celui qui a répondu le plus tôt, puis le meilleur taux de présence.</p>
+    ${rows}
+  </section>`;
+}
+
+function accountHtml(){
+  if(!S.me)return '';
+  const plan=(S.members[S.me]&&S.members[S.me].plan)||'none';
+  const planLabel=(PLANS.find(p=>p.id===plan)||PLANS[0]).label;
+  const sub=plan!=='none';
+  const r=rateOf(S.me);
+  const hist=Object.entries(S.trips)
+    .map(([id,t])=>({id,t,start:startOf(t.date,t.slot).getTime()}))
+    .filter(x=>x.t.going&&x.t.result&&x.t.result.confirmed.includes(S.me)&&x.start<=Date.now())
+    .sort((a,b)=>b.start-a.start);
+  let total=0;
+  const body=hist.map(({t})=>{
+    const p=t.presence&&t.presence[S.me];
+    const price=t.price??S.cfg.price;
+    const cost=(!sub&&p===true)?price:0;
+    total+=cost;
+    const status=p===true?'<span class="tag ok">Présent</span>':p===false?'<span class="tag bad">Absent</span>':'<span class="tag">À confirmer</span>';
+    return `<tr><td>${esc(dayLabel(t.date))}, ${slotOf(t.slot).label}</td><td>${status}</td><td class="r">${sub?'Inclus':(p===true?eur(price):'—')}</td></tr>`;
+  }).join('');
+  return `
+  <section>
+    <h2>Abonnement et trajets</h2>
+    <div class="acct">
+      <div><div class="k">Abonnement</div><div class="v">${esc(planLabel)}</div></div>
+      <div><div class="k">Taux de présence</div><div class="v">${r.rate===null?'Pas encore d’historique':Math.round(r.rate*100)+' %'}</div></div>
+      <div><div class="k">${sub?'Trajets effectués':'Total de mes trajets'}</div><div class="v">${sub?r.p:eur(total)}</div></div>
+    </div>
+    ${sub?'':`<p class="sub">Sans abonnement, chaque aller-retour effectué est facturé ${eur(S.cfg.price)}. Les abonnés passent avant dans le SG.</p>`}
+    ${hist.length?`<div class="table-scroll"><table class="hist"><thead><tr><th>Trajet</th><th>Présence</th><th class="r">Prix</th></tr></thead><tbody>${body}</tbody>
+      ${sub?'':`<tfoot><tr><td colspan="2">Total</td><td class="r">${eur(total)}</td></tr></tfoot>`}</table></div>`
+      :'<div class="empty-s">Tes trajets apparaîtront ici après ton premier départ.</div>'}
+  </section>`;
+}
+
+function compteHtml(){
+  const acc=S.accounts[S.me];
+  const form=`<section style="margin-top:28px">
+    <h2>${acc?'Mon profil':'Créer mon compte'}</h2>
+    <p class="sub">${acc?'Ton nom permet au conducteur de t’attribuer ton abonnement et le prix de tes trajets.':'Indique ton prénom et ton nom pour réserver. Le conducteur s’en sert pour t’attribuer ton abonnement et le prix de tes trajets.'}</p>
+    <div class="settings">
+      <label>Prénom et nom<input type="text" id="acct-name" data-acct="1" maxlength="60" autocomplete="name" value="${esc(acc?acc.name:(S.names[S.me]||''))}"></label>
+      <div style="align-self:end"><button class="btn primary" data-act="saveacct">${acc?'Enregistrer mon nom':'Créer mon compte'}</button></div>
+    </div>
+  </section>`;
+  return form+(acc?accountHtml():'');
+}
+
+function driverHtml(){
+  /* 1. annonces des 7 prochains jours */
+  let grid='';
+  const base=new Date();
+  for(let i=0;i<7;i++){
+    const d=new Date(base.getFullYear(),base.getMonth(),base.getDate()+i);
+    const date=iso(d);
+    grid+=`<h3 class="day-h">${esc(dayLabel(date))}</h3>`;
+    SLOTS.forEach(s=>{
+      const id=tid(date,s.id);const t=S.trips[id];
+      const past=startOf(date,s.id).getTime()<=Date.now();
+      const n=ranking(id).length;
+      const meta=t&&t.going?`${n} demande${n>1?'s':''}${sgPassed(t)&&!t.late?', SG passé':''}`:(past?'Départ passé':'');
+      grid+=`<div class="drow"><div class="t">${s.label}</div>
+        <div class="seg" role="group" aria-label="Trajet de ${s.label}, ${esc(dayLabel(date))}">
+          <button class="go" data-act="going" data-date="${date}" data-slot="${s.id}" data-v="1" aria-pressed="${t&&t.going===true}"${past?' disabled':''}>Je fais le trajet</button>
+          <button data-act="going" data-date="${date}" data-slot="${s.id}" data-v="0" aria-pressed="${t&&t.going===false}"${past?' disabled':''}>Pas de trajet</button>
+        </div><span class="meta">${meta}</span></div>`;
+    });
+  }
+
+  /* 2. résultats et présence */
+  const trips=Object.entries(S.trips)
+    .map(([id,t])=>({id,t,start:startOf(t.date,t.slot).getTime()}))
+    .filter(x=>x.t.going&&sgPassed(x.t)&&x.start>Date.now()-3*86400000)
+    .sort((a,b)=>b.start-a.start);
+  let res='';
+  trips.forEach(({id,t,start})=>{
+    const o=outcome(t,id);if(!o)return;
+    const started=start<=Date.now();
+    let li='';
+    o.confirmed.forEach((u,i)=>{
+      const p=t.presence&&t.presence[u];
+      li+=`<div class="drow"><span class="meta" style="width:1.8em">${i+1}</span><span>${who(u)}</span>
+        <span class="pres" role="group" aria-label="Présence de ${esc(nameOf(u))}">
+          <button class="btn sm" data-act="pres" data-id="${esc(id)}" data-uid="${esc(u)}" data-v="1" aria-pressed="${p===true}"${started?'':' disabled'} style="${p===true?'background:var(--ok);border-color:var(--ok);color:#fff':''}">Présent</button>
+          <button class="btn sm" data-act="pres" data-id="${esc(id)}" data-uid="${esc(u)}" data-v="0" aria-pressed="${p===false}"${started?'':' disabled'} style="${p===false?'background:var(--bad);border-color:var(--bad);color:#fff':''}">Absent</button>
+        </span></div>`;
+    });
+    if(o.waiting.length)li+=`<div class="drow"><span class="meta">Liste d’attente : ${o.waiting.map(u=>esc(nameOf(u))).join(', ')}</span></div>`;
+    if(!o.confirmed.length&&!o.waiting.length)li='<div class="drow"><span class="meta">Personne n’a demandé de place.</span></div>';
+    res+=`<div class="tripres"><h3>${esc(dayLabel(t.date))}, ${slotOf(t.slot).label}</h3>${li}${started?'':'<div class="meta" style="color:var(--muted);font-size:14px">La présence se renseigne à partir de l’heure du départ.</div>'}</div>`;
+  });
+  if(!res)res='<div class="empty-s">Les résultats apparaîtront ici dès qu’un SG sera passé.</div>';
+
+  /* 3. passagers */
+  const uids=[...new Set([...Object.keys(S.accounts),...Object.keys(S.requests),...Object.keys(S.members)])];
+  uids.sort((a,b)=>baseName(a).localeCompare(baseName(b),'fr'));
+  let pax='';
+  uids.forEach(u=>{
+    const plan=(S.members[u]&&S.members[u].plan)||'none';
+    const r=rateOf(u);
+    let total=0;
+    Object.values(S.trips).forEach(t=>{if(t.presence&&t.presence[u]===true&&t.result&&t.result.confirmed.includes(u))total+=(t.price??S.cfg.price);});
+    pax+=`<tr><td>${esc(baseName(u))}</td>
+      <td><select class="plan" data-plan="${esc(u)}" aria-label="Abonnement de ${esc(nameOf(u))}">${PLANS.map(p=>`<option value="${p.id}"${p.id===plan?' selected':''}>${p.label}</option>`).join('')}</select></td>
+      <td>${r.rate===null?'—':Math.round(r.rate*100)+' % ('+r.n+')'}</td>
+      <td class="r">${plan==='none'?eur(total):'Inclus'}</td></tr>`;
+  });
+  const paxTable=pax?`<div class="table-scroll"><table class="hist"><thead><tr><th>Passager</th><th>Abonnement</th><th>Présence</th><th class="r">Dû</th></tr></thead><tbody>${pax}</tbody></table></div>`
+    :'<div class="empty-s">Les passagers apparaissent ici après avoir créé leur compte.</div>';
+
+  return `
+  <section style="margin-top:28px">
+    <h2>Mes trajets</h2>
+    <p class="sub">Indique pour chaque créneau si tu fais le trajet. Les passagers ne voient que les trajets annoncés.</p>
+    ${grid}
+  </section>
+  <section>
+    <h2>Résultats et présence</h2>
+    <p class="sub">Les résultats sont figés à l’heure du SG, quand cette page est ouverte. Marque ensuite qui était présent : cela alimente le taux de présence et le prix des trajets.</p>
+    ${res}
+  </section>
+  <section>
+    <h2>Passagers et abonnements</h2>
+    ${paxTable}
+  </section>
+  <section>
+    <h2>Réglages</h2>
+    <div class="settings">
+      <label>Places disponibles<input type="number" min="1" max="8" value="${S.cfg.seats}" data-cfg="seats"></label>
+      <label>Prix d’un aller-retour (€)<input type="number" min="0" step="0.05" value="${S.cfg.price}" data-cfg="price"></label>
+      <label>Heure du SG (la veille)<input type="time" value="${esc(S.cfg.sgHour)}" data-cfg="sgHour"></label>
+    </div>
+  </section>`;
+}
+
+function render(){
+  const app=document.getElementById('app');
+  const ae=document.activeElement;
+  const keep=ae&&ae.dataset&&(ae.dataset.cfg||ae.dataset.plan||ae.dataset.acct);
+  if(keep&&ae.tagName==='INPUT'&&document.hasFocus())return; /* ne pas casser la saisie */
+  let body='';
+  if(!S.db){
+    body=`<div class="notice warn">Le site doit être ouvert depuis claude.ai, avec un compte connecté, pour enregistrer les trajets et les demandes.</div>`;
+  }else if(!S.loaded){
+    body='<div class="notice">Chargement des trajets…</div>';
+  }else{
+    if(!S.me)body+='<div class="notice warn" style="margin-bottom:16px">Connecte-toi pour demander une place.</div>';
+    body+=(S.tab==='conducteur'&&S.canEdit)?driverHtml():(S.tab==='compte'?compteHtml():passengerHtml());
+  }
+  const showBoard=S.tab==='passager';
+  app.innerHTML=`
+    <header class="top">
+      <div class="brand">${MASK}<span>La Racoon Mobile</span></div>
+      ${S.me?`<div class="tabs" role="tablist">
+        <button class="tab" role="tab" data-act="tab" data-tab="passager" aria-selected="${S.tab==='passager'}">Trajets</button>
+        <button class="tab" role="tab" data-act="tab" data-tab="compte" aria-selected="${S.tab==='compte'}">Mon compte</button>
+        ${S.canEdit?`<button class="tab" role="tab" data-act="tab" data-tab="conducteur" aria-selected="${S.tab==='conducteur'}">Conducteur</button>`:''}
+      </div>`:''}
+    </header>
+    ${S.db&&S.loaded&&showBoard?boardHtml():''}
+    ${body}`;
+}
+
+/* ---------- événements ---------- */
+document.addEventListener('click',e=>{
+  const b=e.target.closest('[data-act]');if(!b||b.disabled)return;
+  const a=b.dataset.act;
+  if(a==='tab'){S.tab=b.dataset.tab;render();}
+  else if(a==='req'&&S.me)toggleRequest(b.dataset.id);
+  else if(a==='saveacct'){const el=document.getElementById('acct-name');saveAccount(el?el.value:'');}
+  else if(a==='going')setGoing(b.dataset.date,b.dataset.slot,b.dataset.v==='1');
+  else if(a==='pres')setPresence(b.dataset.id,b.dataset.uid,b.dataset.v==='1');
+});
+document.addEventListener('change',e=>{
+  const el=e.target;
+  if(el.dataset.plan){setPlan(el.dataset.plan,el.value);}
+  else if(el.dataset.cfg){
+    const k=el.dataset.cfg;
+    if(k==='sgHour'){if(el.value)setCfg(k,el.value);}
+    else{const v=Number(el.value);if(!isNaN(v)&&v>=0)setCfg(k,k==='seats'?Math.max(1,Math.round(v)):v);}
+  }
+});
+document.addEventListener('toggle',e=>{
+  const d=e.target;if(!d.dataset||!d.dataset.trip)return;
+  if(d.open)S.open.add(d.dataset.trip);else S.open.delete(d.dataset.trip);
+},true);
+
+/* tick : compte à rebours + passage de l'heure du SG */
+setInterval(()=>{
+  document.querySelectorAll('[data-until]').forEach(el=>{el.textContent=remaining(Number(el.dataset.until)-Date.now());});
+  const now=Date.now();
+  const crossed=Object.values(S.trips).some(t=>{
+    if(!t.going)return false;
+    const sg=sgOf(t.date).getTime(),st=startOf(t.date,t.slot).getTime();
+    return (sg>S.lastTick&&sg<=now)||(st>S.lastTick&&st<=now);
+  });
+  S.lastTick=now;
+  if(crossed){render();freezeDue();}
+},15000);
+
+/* ---------- démarrage ---------- */
+render();
+(async function init(){
+  try{
+    S.user=await claude.use('user');
+    S.db=await claude.use('db');
+    if(S.user){
+      S.me=await S.user.id();
+      S.canEdit=await S.user.canEdit();
+    }
+  }catch(e){}
+  if(!S.db){render();return;}
+  render();
+  const err=()=>{};
+  S.db.doc('config/main').onSnapshot(s=>{if(s.exists)S.cfg={...S.cfg,...s.data()};afterData();},err);
+  S.db.collection('trips').onSnapshot(snap=>{S.trips={};snap.docs.forEach(d=>{S.trips[d.id]=d.data();});afterData();},err);
+  S.db.collection('members').onSnapshot(snap=>{S.members={};snap.docs.forEach(d=>{S.members[d.id]=d.data();});afterData();},err);
+  S.db.collection('requests').onSnapshot(snap=>{S.requests={};snap.docs.forEach(d=>{S.requests[d.id]=d.data();});afterData();},err);
+  S.db.collection('accounts').onSnapshot(snap=>{S.accounts={};snap.docs.forEach(d=>{S.accounts[d.id]=d.data();});S.accountsLoaded=true;afterData();},err);
+})();
+</script>
+</body>
+</html>
