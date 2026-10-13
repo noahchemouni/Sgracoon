@@ -1,0 +1,777 @@
+<!doctype html>
+<html lang="fr">
+<head>
+<meta charset="utf-8">
+<title>La Racoon Mobile</title>
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<link rel="icon" href="data:image/svg+xml,<svg xmlns=%22http://www.w3.org/2000/svg%22 viewBox=%220 0 100 100%22><text y=%22.9em%22 font-size=%2290%22>🦝</text></svg>">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Bricolage+Grotesque:opsz,wdth,wght@12..96,75..100,300..800&family=Instrument+Sans:wght@400;500;600&display=swap" rel="stylesheet">
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.45.4/dist/umd/supabase.min.js"></script>
+<style>
+:root{
+  box-sizing:border-box;
+  padding-top:env(safe-area-inset-top,0px);
+  padding-bottom:env(safe-area-inset-bottom,0px);
+  --bg:#E8EBE7;
+  --surface:#F4F6F3;
+  --ink:#14181B;
+  --muted:#5F686F;
+  --line:#CBD1CC;
+  --board:#1B2127;
+  --board-ink:#E9ECE8;
+  --board-muted:#8C959C;
+  --amber:#FFB224;
+  --amber-ink:#3A2600;
+  --ok:#256B5A;
+  --ok-bg:#D5E8E1;
+  --bad:#A8412C;
+  --bad-bg:#F0D9D2;
+  --focus:#1D5FD1;
+  --display:"Bricolage Grotesque",ui-sans-serif,system-ui,sans-serif;
+  --body:"Instrument Sans",ui-sans-serif,system-ui,sans-serif;
+}
+@media (prefers-color-scheme:dark){
+  :root:not([data-theme="light"]){
+    --bg:#13171A;--surface:#1B2024;--ink:#E8EBE7;--muted:#9AA3A9;--line:#2D353B;
+    --board:#0C0F11;--ok:#7CCDB7;--ok-bg:#1B3A32;--bad:#E58A72;--bad-bg:#3B221B;--focus:#7FA9F5;
+  }
+}
+:root[data-theme="dark"]{
+  --bg:#13171A;--surface:#1B2024;--ink:#E8EBE7;--muted:#9AA3A9;--line:#2D353B;
+  --board:#0C0F11;--ok:#7CCDB7;--ok-bg:#1B3A32;--bad:#E58A72;--bad-bg:#3B221B;--focus:#7FA9F5;
+}
+*,*::before,*::after{box-sizing:inherit}
+html{scroll-padding-top:env(safe-area-inset-top,0px)}
+body{margin:0;background:var(--bg);color:var(--ink);font-family:var(--body);font-size:16px;line-height:1.5;-webkit-font-smoothing:antialiased}
+button,select,input{font:inherit;color:inherit}
+:focus-visible{outline:3px solid var(--focus);outline-offset:2px}
+.wrap{max-width:880px;margin:0 auto;padding:20px 18px 64px}
+h1,h2,h3{font-family:var(--display);margin:0;line-height:1.1;letter-spacing:-0.01em}
+
+/* barre du haut */
+.top{display:flex;align-items:center;justify-content:space-between;gap:12px;flex-wrap:wrap;margin-bottom:22px}
+.brand{display:flex;align-items:center;gap:10px;font-family:var(--display);font-weight:700;font-size:22px;font-stretch:80%}
+.brand svg{width:38px;height:38px;flex:none}
+.tabs{display:flex;gap:4px;flex-wrap:wrap}
+.tab{background:none;border:0;padding:8px 12px;border-bottom:3px solid transparent;cursor:pointer;color:var(--muted);font-weight:500}
+.tab[aria-selected="true"]{color:var(--ink);border-bottom-color:var(--amber)}
+
+/* tableau de départ */
+.board{background:var(--board);color:var(--board-ink);border-radius:6px;padding:26px 26px 22px;display:grid;grid-template-columns:minmax(0,1fr) minmax(0,1fr);gap:20px 32px;
+  background-image:radial-gradient(rgba(255,255,255,.055) 1px,transparent 1.4px);background-size:7px 7px}
+.board .when{font-family:var(--display);font-stretch:75%;font-weight:700;font-size:clamp(68px,17vw,128px);line-height:.9;color:var(--amber);letter-spacing:-0.02em}
+.board .day{font-size:18px;color:var(--board-ink);margin-top:10px;font-weight:500}
+.board .label{color:var(--board-muted);font-size:14px}
+.board .state{font-family:var(--display);font-stretch:85%;font-weight:600;font-size:24px;line-height:1.2;margin:2px 0 14px}
+.lights{display:flex;gap:10px;margin:8px 0 6px;flex-wrap:wrap}
+.light{width:22px;height:22px;border-radius:50%;border:2px solid var(--board-muted);background:transparent}
+.light.on{background:var(--amber);border-color:var(--amber)}
+.light.me{box-shadow:0 0 0 3px var(--board),0 0 0 5px var(--board-ink)}
+.board .mine{margin-top:12px;font-size:15px}
+.board.empty{grid-template-columns:1fr}
+.board.empty .state{font-size:28px;margin:0}
+@media (max-width:620px){.board{grid-template-columns:1fr;padding:20px}}
+
+/* sections */
+section{margin-top:40px}
+section>h2{font-size:26px;font-stretch:85%;font-weight:700;margin-bottom:4px}
+.sub{color:var(--muted);margin:0 0 14px;max-width:62ch}
+.day-h{font-family:var(--display);font-weight:600;font-size:18px;margin:22px 0 4px}
+.row{display:grid;grid-template-columns:76px minmax(0,1fr) auto;gap:6px 14px;align-items:center;padding:14px 0;border-top:1px solid var(--line)}
+.row:last-child{border-bottom:1px solid var(--line)}
+.row .t{font-family:var(--display);font-stretch:80%;font-weight:700;font-size:26px}
+.row .st{min-width:0}
+.row .st small{display:block;color:var(--muted)}
+.row.past{opacity:.55}
+@media (max-width:560px){.row{grid-template-columns:62px minmax(0,1fr)}.row .act{grid-column:1/-1}}
+
+.btn{border:1.5px solid var(--ink);background:transparent;border-radius:4px;padding:9px 16px;font-weight:600;cursor:pointer}
+.btn:hover{background:var(--ink);color:var(--bg)}
+.btn.primary{background:var(--amber);border-color:var(--amber);color:var(--amber-ink)}
+.btn.primary:hover{background:var(--ink);border-color:var(--ink);color:var(--amber)}
+.btn[disabled]{opacity:.45;cursor:not-allowed}
+.btn.sm{padding:5px 11px;font-size:14px}
+.tag{display:inline-block;border-radius:3px;padding:1px 8px;font-size:13px;font-weight:600;background:var(--line);color:var(--ink)}
+.tag.ok{background:var(--ok-bg);color:var(--ok)}
+.tag.bad{background:var(--bad-bg);color:var(--bad)}
+.tag.sub{background:var(--amber);color:var(--amber-ink)}
+
+details.res{margin-top:6px}
+details.res summary{cursor:pointer;color:var(--muted);font-size:14px;width:max-content}
+ol.rank{margin:8px 0 0;padding:0;list-style:none;display:grid;gap:4px;font-size:15px}
+ol.rank li{display:flex;gap:10px;align-items:baseline;flex-wrap:wrap}
+ol.rank .n{width:1.6em;font-family:var(--display);font-weight:700;color:var(--muted)}
+ol.rank .sep{border-top:1px dashed var(--line);margin:4px 0;padding-top:4px;color:var(--muted);font-size:13px}
+ol.rank .when{color:var(--muted);font-size:13px}
+
+/* compte */
+.acct{display:grid;grid-template-columns:repeat(auto-fit,minmax(200px,1fr));gap:18px 32px;margin:12px 0 6px}
+.acct .k{color:var(--muted);font-size:14px}
+.acct .v{font-family:var(--display);font-stretch:85%;font-size:24px;font-weight:700}
+.hist{width:100%;border-collapse:collapse;margin-top:14px;font-size:15px}
+.hist th{text-align:left;font-weight:500;color:var(--muted);padding:6px 8px 6px 0;border-bottom:1px solid var(--line)}
+.hist td{padding:9px 8px 9px 0;border-bottom:1px solid var(--line)}
+.hist td.r,.hist th.r{text-align:right}
+.hist tfoot td{font-weight:700;border-bottom:0}
+.table-scroll{overflow-x:auto}
+
+/* conducteur */
+.seg{display:inline-flex;border:1.5px solid var(--ink);border-radius:4px;overflow:hidden}
+.seg button{border:0;background:transparent;padding:7px 13px;cursor:pointer;font-weight:500}
+.seg button+button{border-left:1.5px solid var(--ink)}
+.seg button[aria-pressed="true"]{background:var(--ink);color:var(--bg)}
+.seg button.go[aria-pressed="true"]{background:var(--ok);color:#fff}
+.seg button[disabled]{opacity:.45;cursor:not-allowed}
+.drow{display:flex;align-items:center;gap:14px;flex-wrap:wrap;padding:10px 0;border-top:1px solid var(--line)}
+.drow .t{font-family:var(--display);font-stretch:80%;font-weight:700;font-size:22px;width:64px}
+.drow .meta{color:var(--muted);font-size:14px}
+.settings{display:grid;grid-template-columns:repeat(auto-fit,minmax(180px,1fr));gap:16px;margin-top:10px}
+.settings label{display:grid;gap:4px;font-size:14px;color:var(--muted)}
+.settings input,select.plan{background:var(--surface);border:1.5px solid var(--line);border-radius:4px;padding:8px 10px;color:var(--ink)}
+.settings input{width:100%}
+.pres{display:flex;gap:4px;margin-left:auto}
+.tripres{margin-top:18px}
+.tripres h3{font-size:18px;font-weight:600;font-stretch:90%}
+.notice{background:var(--surface);border:1.5px dashed var(--line);border-radius:6px;padding:16px 18px;color:var(--muted);margin-top:14px}
+.notice.warn{border-color:var(--bad);color:var(--bad)}
+.notice code{background:var(--line);color:var(--ink);padding:1px 6px;border-radius:3px}
+.empty-s{color:var(--muted);padding:14px 0}
+@media (prefers-reduced-motion:no-preference){.btn,.tab{transition:background .12s,color .12s}}
+</style>
+</head>
+<body>
+<div class="wrap" id="app"></div>
+
+<script>
+/* =====================================================================
+   1) À REMPLIR : les deux valeurs de ton projet Supabase
+      (Supabase > Project Settings > API)
+   ===================================================================== */
+const SUPABASE_URL='COLLE_ICI_L_URL_DU_PROJET';
+const SUPABASE_KEY='COLLE_ICI_LA_CLE_PUBLIQUE';
+
+/* ---------- constantes ---------- */
+const CONFIGURED=/^https:\/\/[a-z0-9-]+\.supabase\.co\/?$/.test(SUPABASE_URL)&&SUPABASE_KEY.length>20&&!!window.supabase;
+const sb=CONFIGURED?window.supabase.createClient(SUPABASE_URL,SUPABASE_KEY):null;
+const SLOTS=[{id:'0745',h:7,m:45,label:'7h45'},{id:'1345',h:13,m:45,label:'13h45'}];
+const PLANS=[
+  {id:'none',label:'Sans abonnement'},
+  {id:'carnet',label:'Carnet de 10 trajets'},
+  {id:'mensuel',label:'Abonnement mensuel'},
+  {id:'trimestre',label:'Abonnement trimestriel'}
+];
+const S={
+  cfg:{seats:4,price:0.4,sgHour:'20:00'},
+  trips:{},profiles:{},requests:{},
+  session:null,me:null,canEdit:false,tab:'passager',
+  open:new Set(),freezing:new Set(),
+  booted:false,loaded:false,loading:false,pending:false,triedAuto:false,autoTab:false,
+  authMode:'login',authMsg:'',draft:{name:'',email:''},lastTick:Date.now()
+};
+
+/* ---------- utilitaires ---------- */
+const pad=n=>String(n).padStart(2,'0');
+const iso=d=>`${d.getFullYear()}-${pad(d.getMonth()+1)}-${pad(d.getDate())}`;
+const tid=(date,slot)=>`${date}_${slot}`;
+const esc=s=>String(s).replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
+const cap=s=>s.charAt(0).toUpperCase()+s.slice(1);
+const eur=n=>new Intl.NumberFormat('fr-FR',{style:'currency',currency:'EUR'}).format(n);
+const slotOf=id=>SLOTS.find(s=>s.id===id);
+const val=id=>{const el=document.getElementById(id);return el?el.value:'';};
+function parseDate(date){const [y,m,d]=date.split('-').map(Number);return {y,m,d};}
+function startOf(date,slot){const {y,m,d}=parseDate(date);const s=slotOf(slot);return new Date(y,m-1,d,s.h,s.m);}
+function sgOf(date){const {y,m,d}=parseDate(date);const [hh,mm]=(S.cfg.sgHour||'20:00').split(':').map(Number);return new Date(y,m-1,d-1,hh,mm);}
+function dayLabel(date){const {y,m,d}=parseDate(date);return cap(new Intl.DateTimeFormat('fr-FR',{weekday:'long',day:'numeric',month:'long'}).format(new Date(y,m-1,d)));}
+function hhmm(h){const [a,b]=h.split(':');return `${Number(a)}h${b}`;}
+function dayWord(d){
+  const t=new Date();
+  const tm=new Date(t.getFullYear(),t.getMonth(),t.getDate()+1);
+  const key=iso(d);
+  if(key===iso(t))return "aujourd'hui";
+  if(key===iso(tm))return 'demain';
+  return new Intl.DateTimeFormat('fr-FR',{weekday:'long'}).format(d);
+}
+function sgLabel(t){const d=sgOf(t.date);return `${dayWord(d)} à ${hhmm(S.cfg.sgHour)}`;}
+function remaining(ms){
+  if(ms<=0)return 'maintenant';
+  const min=Math.floor(ms/60000);
+  if(min<1)return 'moins d’une minute';
+  const h=Math.floor(min/60),m=min%60;
+  if(h>=24){const d=Math.floor(h/24);return `${d} j ${h%24} h`;}
+  return h?`${h} h ${pad(m)} min`:`${m} min`;
+}
+const baseName=u=>(S.profiles[u]&&S.profiles[u].name)||'Passager';
+const nameOf=u=>(u===S.me?'Toi':baseName(u));
+const tsLabel=ms=>new Intl.DateTimeFormat('fr-FR',{weekday:'short',hour:'2-digit',minute:'2-digit'}).format(new Date(ms));
+
+/* ---------- logique du SG (affichage ; le serveur fait foi) ---------- */
+const isSub=u=>{const p=S.profiles[u]&&S.profiles[u].plan;return !!p&&p!=='none';};
+function rateOf(u){
+  let n=0,p=0;
+  for(const t of Object.values(S.trips)){
+    const v=t.presence&&t.presence[u];
+    if(v===true){n++;p++;}else if(v===false){n++;}
+  }
+  return {n,p,rate:n?p/n:null};
+}
+function ranking(id){
+  const rows=Object.keys(S.requests)
+    .filter(u=>S.requests[u]&&S.requests[u].answers&&S.requests[u].answers[id])
+    .map(u=>({uid:u,ts:S.requests[u].answers[id],sub:isSub(u),rate:rateOf(u).rate??1}));
+  /* 1) abonnés avant les autres 2) réponse la plus rapide 3) meilleur taux de présence */
+  rows.sort((a,b)=>(b.sub-a.sub)||(a.ts-b.ts)||(b.rate-a.rate)||(a.uid<b.uid?-1:1));
+  return rows;
+}
+const sgPassed=t=>!!t.late||Date.now()>=sgOf(t.date).getTime();
+const answersOpen=t=>t.going&&(t.late?Date.now()<startOf(t.date,t.slot).getTime():Date.now()<sgOf(t.date).getTime());
+function liveOutcome(id){
+  const r=ranking(id).map(x=>x.uid);
+  return {confirmed:r.slice(0,S.cfg.seats),waiting:r.slice(S.cfg.seats)};
+}
+function outcome(t,id){
+  if(!t.going)return null;
+  if(t.result)return t.result;
+  if(!sgPassed(t))return null;
+  return liveOutcome(id);
+}
+function seatsOf(t,o){return Math.max(S.cfg.seats,o?o.confirmed.length:0);}
+
+/* ---------- chargement des données ---------- */
+async function loadAll(){
+  if(!sb||!S.me)return;
+  if(S.loading){S.pending=true;return;}
+  S.loading=true;
+  try{
+    const [c,tr,pr,rq,pe]=await Promise.all([
+      sb.from('config').select('*').eq('id',1).maybeSingle(),
+      sb.from('trips').select('*'),
+      sb.from('profiles').select('*'),
+      sb.from('requests').select('*'),
+      sb.from('presence').select('*')
+    ]);
+    const bad=[c,tr,pr,rq,pe].find(r=>r.error);
+    if(bad){toast('Connexion à la base impossible : '+bad.error.message);return;}
+    if(c.data)S.cfg={seats:c.data.seats,price:Number(c.data.price),sgHour:String(c.data.sg_hour).slice(0,5)};
+    S.trips={};
+    tr.data.forEach(t=>{S.trips[t.id]={id:t.id,date:t.date,slot:t.slot,going:t.going,late:t.late,result:t.result,price:t.price==null?null:Number(t.price),presence:{}};});
+    pe.data.forEach(p=>{if(S.trips[p.trip_id])S.trips[p.trip_id].presence[p.user_id]=p.present;});
+    S.profiles={};pr.data.forEach(p=>{S.profiles[p.id]=p;});
+    S.requests={};
+    rq.data.forEach(r=>{(S.requests[r.user_id]=S.requests[r.user_id]||{answers:{}}).answers[r.trip_id]=Date.parse(r.answered_at);});
+
+    /* compte créé juste après l'inscription : on crée le profil avec le nom saisi */
+    if(!S.profiles[S.me]&&!S.triedAuto){
+      S.triedAuto=true;
+      const nm=String((S.session&&S.session.user.user_metadata&&S.session.user.user_metadata.name)||'').trim().slice(0,60);
+      if(nm){
+        const {error}=await sb.from('profiles').insert({id:S.me,name:nm});
+        if(!error){S.loading=false;return loadAll();}
+      }
+    }
+    S.canEdit=!!(S.profiles[S.me]&&S.profiles[S.me].is_driver);
+    if(!S.autoTab){S.autoTab=true;if(!S.profiles[S.me])S.tab='compte';}
+    if(S.tab==='conducteur'&&!S.canEdit)S.tab='passager';
+    S.loaded=true;
+    render();
+    freezeDue();
+  }finally{
+    S.loading=false;
+    if(S.pending){S.pending=false;loadAll();}
+  }
+}
+let loadTimer=null;
+function scheduleLoad(){clearTimeout(loadTimer);loadTimer=setTimeout(loadAll,400);}
+function subscribe(){
+  if(!sb||S.channel)return;
+  S.channel=sb.channel('racoon').on('postgres_changes',{event:'*',schema:'public'},scheduleLoad).subscribe();
+}
+function unsubscribe(){if(S.channel){sb.removeChannel(S.channel);S.channel=null;}}
+
+/* Le SG est exécuté côté serveur : n'importe quel visiteur peut le déclencher, mais seulement une fois l'heure passée */
+async function freezeDue(){
+  if(!sb||!S.me)return;
+  let any=false;
+  for(const [id,t] of Object.entries(S.trips)){
+    if(t.going&&!t.late&&!t.result&&Date.now()>=sgOf(t.date).getTime()&&!S.freezing.has(id)){
+      S.freezing.add(id);any=true;
+      try{await sb.rpc('freeze_trip',{p_id:id});}catch(e){}
+      setTimeout(()=>S.freezing.delete(id),60000);
+    }
+  }
+  if(any)scheduleLoad();
+}
+
+/* ---------- authentification ---------- */
+function authError(e){
+  const m=(e&&e.message)||'';
+  if(/invalid login/i.test(m))return 'E-mail ou mot de passe incorrect.';
+  if(/already registered/i.test(m))return 'Un compte existe déjà avec cette adresse e-mail.';
+  if(/not confirmed/i.test(m))return 'Confirme d’abord ton adresse e-mail grâce au lien reçu par mail.';
+  if(/password/i.test(m)&&/6/.test(m))return 'Le mot de passe doit faire au moins 6 caractères.';
+  if(/rate limit/i.test(m))return 'Trop d’essais. Réessaie dans quelques minutes.';
+  return m||'Une erreur est survenue.';
+}
+async function doLogin(){
+  const email=val('a-email').trim(),pw=val('a-pw');
+  S.draft.email=email;
+  if(!email||!pw){S.authMsg='Indique ton adresse e-mail et ton mot de passe.';render();return;}
+  const {error}=await sb.auth.signInWithPassword({email,password:pw});
+  if(error){S.authMsg=authError(error);render();}
+}
+async function doSignup(){
+  const name=val('a-name').trim().slice(0,60),email=val('a-email').trim(),pw=val('a-pw');
+  S.draft={name,email};
+  if(!name){S.authMsg='Indique ton prénom et ton nom.';render();return;}
+  if(!email){S.authMsg='Indique ton adresse e-mail.';render();return;}
+  if(pw.length<6){S.authMsg='Le mot de passe doit faire au moins 6 caractères.';render();return;}
+  const {data,error}=await sb.auth.signUp({email,password:pw,options:{data:{name}}});
+  if(error){S.authMsg=authError(error);render();return;}
+  if(!data.session){
+    S.authMode='login';
+    S.authMsg='Compte créé. Confirme ton adresse e-mail grâce au lien reçu par mail, puis connecte-toi.';
+    render();
+  }
+}
+async function doLogout(){await sb.auth.signOut();}
+
+/* ---------- actions ---------- */
+async function toggleRequest(id){
+  if(!S.profiles[S.me]){S.tab='compte';render();return;}
+  const asked=S.requests[S.me]&&S.requests[S.me].answers&&S.requests[S.me].answers[id];
+  const {error}=asked
+    ?await sb.from('requests').delete().eq('trip_id',id).eq('user_id',S.me)
+    :await sb.from('requests').insert({trip_id:id,user_id:S.me});
+  if(error)toast(error.message);
+  await loadAll();
+}
+async function saveAccount(name){
+  name=String(name||'').trim().slice(0,60);
+  if(!name){toast('Indique ton prénom et ton nom.');return;}
+  const first=!S.profiles[S.me];
+  const {error}=first?await sb.from('profiles').insert({id:S.me,name}):await sb.from('profiles').update({name}).eq('id',S.me);
+  if(error){toast('Compte non enregistré : '+error.message);return;}
+  if(first)S.tab='passager';
+  toast(first?'Compte créé.':'Nom enregistré.');
+  await loadAll();
+}
+async function setGoing(date,slot,going){
+  const {error}=await sb.from('trips').upsert({id:tid(date,slot),date,slot,going});
+  if(error)toast('Impossible d’enregistrer ce trajet : '+error.message);
+  await loadAll();
+}
+async function setCfg(key,v){
+  const col=key==='sgHour'?'sg_hour':key;
+  const {error}=await sb.from('config').update({[col]:v}).eq('id',1);
+  if(error)toast('Réglage non enregistré : '+error.message);
+  await loadAll();
+}
+async function setPlan(uid,plan){
+  const {error}=await sb.from('profiles').update({plan}).eq('id',uid);
+  if(error)toast('Abonnement non enregistré : '+error.message);
+  await loadAll();
+}
+async function setPresence(id,uid,v){
+  const t=S.trips[id];if(!t)return;
+  const {error}=t.presence[uid]===v
+    ?await sb.from('presence').delete().eq('trip_id',id).eq('user_id',uid)
+    :await sb.from('presence').upsert({trip_id:id,user_id:uid,present:v});
+  if(error)toast('Présence non enregistrée : '+error.message);
+  await loadAll();
+}
+let toastTimer=null;
+function toast(msg){
+  let el=document.getElementById('toast');
+  if(!el){el=document.createElement('div');el.id='toast';el.setAttribute('role','status');
+    el.style.cssText='position:fixed;left:50%;transform:translateX(-50%);bottom:calc(env(safe-area-inset-bottom,0px) + 18px);background:var(--ink);color:var(--bg);padding:10px 16px;border-radius:4px;max-width:90vw;z-index:10';
+    document.body.appendChild(el);}
+  el.textContent=msg;el.style.display='block';
+  clearTimeout(toastTimer);toastTimer=setTimeout(()=>el.style.display='none',5000);
+}
+
+/* ---------- affichage ---------- */
+const MASK=`<svg viewBox="0 0 48 48" aria-hidden="true"><path d="M7 14 14 5l6 7h8l6-7 7 9-3 14c-1 6-8 11-14 11S11 34 10 28Z" fill="#7D858C"/><path d="M10 25c4-4 9-4 14-1 5-3 10-3 14 1-1 5-6 7-14 6-8 1-13-1-14-6Z" fill="#14181B"/><ellipse cx="17.5" cy="26" rx="2.6" ry="2.2" fill="#F4F6F3"/><ellipse cx="30.5" cy="26" rx="2.6" ry="2.2" fill="#F4F6F3"/><circle cx="24" cy="35" r="2.4" fill="#14181B"/></svg>`;
+
+function upcomingTrips(){
+  const now=Date.now();
+  return Object.entries(S.trips)
+    .map(([id,t])=>({id,t,start:startOf(t.date,t.slot).getTime()}))
+    .filter(x=>x.start>now-60*60000)
+    .sort((a,b)=>a.start-b.start);
+}
+
+function boardHtml(){
+  const next=upcomingTrips().find(x=>x.t.going&&x.start>Date.now());
+  if(!next){
+    return `<div class="board empty"><div><div class="label">Prochain départ</div><div class="state">Aucun trajet annoncé pour l’instant</div><div class="label" style="margin-top:8px">Le conducteur publie ici les trajets de 7h45 et de 13h45.</div></div></div>`;
+  }
+  const {id,t}=next;const o=outcome(t,id);
+  const slot=slotOf(t.slot);
+  let state='',sub='';
+  if(answersOpen(t)){
+    if(t.late){state='Réponses ouvertes jusqu’au départ';sub='Annoncé après l’heure du SG, classement en direct.';}
+    else{state=`SG ${sgLabel(t)}`;sub=`Réponses ouvertes encore <span data-until="${sgOf(t.date).getTime()}">${remaining(sgOf(t.date).getTime()-Date.now())}</span>`;}
+  }else{state='Résultats du SG publiés';sub='Les places sont attribuées.';}
+  const seats=S.cfg.seats;
+  const confirmed=o?o.confirmed:[];
+  let lights='';
+  for(let i=0;i<Math.max(seats,confirmed.length);i++){
+    const on=i<confirmed.length;
+    const me=on&&confirmed[i]===S.me;
+    lights+=`<span class="light${on?' on':''}${me?' me':''}" title="${on?'Place attribuée':'Place libre'}"></span>`;
+  }
+  const nReq=ranking(id).length;
+  let mine='';
+  if(S.me){
+    if(o){
+      const ci=o.confirmed.indexOf(S.me),wi=o.waiting.indexOf(S.me);
+      if(ci>=0)mine=`Ta place est confirmée (n° ${ci+1}).`;
+      else if(wi>=0)mine=`Tu es en liste d’attente (n° ${wi+1}).`;
+      else mine='Tu n’avais pas demandé de place.';
+    }else{
+      const asked=S.requests[S.me]&&S.requests[S.me].answers&&S.requests[S.me].answers[id];
+      mine=asked?'Ta demande est enregistrée.':'Tu n’as pas encore demandé de place.';
+    }
+  }
+  return `<div class="board">
+    <div><div class="label">Prochain départ</div><div class="when">${slot.label}</div><div class="day">${esc(dayLabel(t.date))}</div></div>
+    <div><div class="state">${esc(state)}</div>
+      <div class="label">${sub}</div>
+      <div class="lights" role="img" aria-label="${confirmed.length} places attribuées sur ${seats}">${lights}</div>
+      <div class="label">${confirmed.length} sur ${seats} places attribuées, ${nReq} demande${nReq>1?'s':''}</div>
+      ${mine?`<div class="mine">${esc(mine)}</div>`:''}
+    </div></div>`;
+}
+
+function who(u,extra){
+  const sub=isSub(u);
+  return `<span>${esc(nameOf(u))}</span> <span class="tag${sub?' sub':''}">${sub?'Abonné':'À la course'}</span>${extra||''}`;
+}
+
+function resultsHtml(id,t,o){
+  const rows=ranking(id);const byUid=Object.fromEntries(rows.map(r=>[r.uid,r]));
+  const open=S.open.has(id)?' open':'';
+  const when=u=>byUid[u]?` <span class="when">a répondu ${esc(tsLabel(byUid[u].ts))}</span>`:'';
+  let li='';
+  o.confirmed.forEach((u,i)=>{li+=`<li><span class="n">${i+1}</span>${who(u,when(u))}</li>`;});
+  if(o.waiting.length){
+    li+=`<li class="sep">Liste d’attente</li>`;
+    o.waiting.forEach((u,i)=>{li+=`<li><span class="n">${o.confirmed.length+i+1}</span>${who(u,when(u))}</li>`;});
+  }
+  if(!li)li='<li class="when">Personne n’a demandé de place.</li>';
+  return `<details class="res" data-trip="${esc(id)}"${open}><summary>Voir les résultats du SG</summary><ol class="rank">${li}</ol></details>`;
+}
+
+function passengerHtml(){
+  if(!S.profiles[S.me]){
+    return `<div class="notice" style="margin-top:28px">Crée ton profil pour demander une place : le conducteur s’en sert pour t’attribuer ton abonnement et le prix de tes trajets.<div style="margin-top:12px"><button class="btn primary" data-act="tab" data-tab="compte">Créer mon profil</button></div></div>`;
+  }
+  const list=upcomingTrips().filter(x=>x.start>Date.now());
+  const byDate={};
+  list.forEach(x=>{(byDate[x.t.date]=byDate[x.t.date]||[]).push(x);});
+  let rows='';
+  for(const date of Object.keys(byDate).sort()){
+    rows+=`<h3 class="day-h">${esc(dayLabel(date))}</h3>`;
+    byDate[date].sort((a,b)=>a.start-b.start).forEach(({id,t})=>{
+      const slot=slotOf(t.slot);
+      if(!t.going){
+        rows+=`<div class="row past"><div class="t">${slot.label}</div><div class="st">Pas de trajet</div></div>`;
+        return;
+      }
+      const o=outcome(t,id);
+      const asked=S.requests[S.me]&&S.requests[S.me].answers&&S.requests[S.me].answers[id];
+      let st='',act='';
+      if(o){
+        const ci=o.confirmed.indexOf(S.me),wi=o.waiting.indexOf(S.me);
+        if(ci>=0)st=`<span class="tag ok">Place confirmée</span> n° ${ci+1}`;
+        else if(wi>=0)st=`<span class="tag bad">Liste d’attente</span> n° ${wi+1}`;
+        else st='Réponses closes';
+        st+=`<small>${o.confirmed.length} sur ${seatsOf(t,o)} places attribuées</small>`+resultsHtml(id,t,o);
+        if(t.late&&answersOpen(t)){
+          act=`<button class="btn${asked?'':' primary'}" data-act="req" data-id="${esc(id)}">${asked?'Retirer ma demande':'Demander une place'}</button>`;
+        }
+      }else{
+        const n=ranking(id).length;
+        st=`${asked?'<span class="tag ok">Demande envoyée</span> ':''}SG ${esc(sgLabel(t))}<small>${n} demande${n>1?'s':''} pour ${S.cfg.seats} places</small>`;
+        act=`<button class="btn${asked?'':' primary'}" data-act="req" data-id="${esc(id)}">${asked?'Retirer ma demande':'Demander une place'}</button>`;
+      }
+      rows+=`<div class="row"><div class="t">${slot.label}</div><div class="st">${st}</div><div class="act">${act}</div></div>`;
+    });
+  }
+  if(!rows)rows='<div class="empty-s">Aucun trajet à venir. Reviens quand le conducteur aura publié les prochains départs.</div>';
+  return `
+  <section style="margin-top:28px">
+    <h2>Trajets à venir</h2>
+    <p class="sub">Demande ta place avant le SG. À l’heure du SG, les places sont attribuées : les abonnés d’abord, puis celui qui a répondu le plus tôt, puis le meilleur taux de présence.</p>
+    ${rows}
+  </section>`;
+}
+
+function accountHtml(){
+  const me=S.profiles[S.me];if(!me)return '';
+  const plan=me.plan||'none';
+  const planLabel=(PLANS.find(p=>p.id===plan)||PLANS[0]).label;
+  const sub=plan!=='none';
+  const r=rateOf(S.me);
+  const hist=Object.values(S.trips)
+    .map(t=>({t,start:startOf(t.date,t.slot).getTime()}))
+    .filter(x=>x.t.going&&x.t.result&&x.t.result.confirmed.includes(S.me)&&x.start<=Date.now())
+    .sort((a,b)=>b.start-a.start);
+  let total=0;
+  const body=hist.map(({t})=>{
+    const p=t.presence&&t.presence[S.me];
+    const price=t.price??S.cfg.price;
+    const cost=(!sub&&p===true)?price:0;
+    total+=cost;
+    const status=p===true?'<span class="tag ok">Présent</span>':p===false?'<span class="tag bad">Absent</span>':'<span class="tag">À confirmer</span>';
+    return `<tr><td>${esc(dayLabel(t.date))}, ${slotOf(t.slot).label}</td><td>${status}</td><td class="r">${sub?'Inclus':(p===true?eur(price):'—')}</td></tr>`;
+  }).join('');
+  return `
+  <section>
+    <h2>Abonnement et trajets</h2>
+    <div class="acct">
+      <div><div class="k">Abonnement</div><div class="v">${esc(planLabel)}</div></div>
+      <div><div class="k">Taux de présence</div><div class="v">${r.rate===null?'Pas encore d’historique':Math.round(r.rate*100)+' %'}</div></div>
+      <div><div class="k">${sub?'Trajets effectués':'Total de mes trajets'}</div><div class="v">${sub?r.p:eur(total)}</div></div>
+    </div>
+    ${sub?'':`<p class="sub">Sans abonnement, chaque aller-retour effectué est facturé ${eur(S.cfg.price)}. Les abonnés passent avant dans le SG.</p>`}
+    ${hist.length?`<div class="table-scroll"><table class="hist"><thead><tr><th>Trajet</th><th>Présence</th><th class="r">Prix</th></tr></thead><tbody>${body}</tbody>
+      ${sub?'':`<tfoot><tr><td colspan="2">Total</td><td class="r">${eur(total)}</td></tr></tfoot>`}</table></div>`
+      :'<div class="empty-s">Tes trajets apparaîtront ici après ton premier départ.</div>'}
+  </section>`;
+}
+
+function compteHtml(){
+  const acc=S.profiles[S.me];
+  const meta=String((S.session&&S.session.user.user_metadata&&S.session.user.user_metadata.name)||'');
+  const form=`<section style="margin-top:28px">
+    <h2>${acc?'Mon profil':'Créer mon profil'}</h2>
+    <p class="sub">${acc?'Ton nom permet au conducteur de t’attribuer ton abonnement et le prix de tes trajets.':'Indique ton prénom et ton nom pour réserver. Le conducteur s’en sert pour t’attribuer ton abonnement et le prix de tes trajets.'}</p>
+    <div class="settings">
+      <label>Prénom et nom<input type="text" id="acct-name" data-acct="1" maxlength="60" autocomplete="name" value="${esc(acc?acc.name:meta)}"></label>
+      <div style="align-self:end"><button class="btn primary" data-act="saveacct">${acc?'Enregistrer mon nom':'Créer mon profil'}</button></div>
+    </div>
+    ${S.session?`<p class="sub" style="margin-top:14px">Connecté avec ${esc(S.session.user.email||'')}.</p>`:''}
+  </section>`;
+  return form+(acc?accountHtml():'');
+}
+
+function driverHtml(){
+  /* 1. annonces des 7 prochains jours */
+  let grid='';
+  const base=new Date();
+  for(let i=0;i<7;i++){
+    const d=new Date(base.getFullYear(),base.getMonth(),base.getDate()+i);
+    const date=iso(d);
+    grid+=`<h3 class="day-h">${esc(dayLabel(date))}</h3>`;
+    SLOTS.forEach(s=>{
+      const id=tid(date,s.id);const t=S.trips[id];
+      const past=startOf(date,s.id).getTime()<=Date.now();
+      const n=ranking(id).length;
+      const meta=t&&t.going?`${n} demande${n>1?'s':''}${sgPassed(t)&&!t.late?', SG passé':''}`:(past?'Départ passé':'');
+      grid+=`<div class="drow"><div class="t">${s.label}</div>
+        <div class="seg" role="group" aria-label="Trajet de ${s.label}, ${esc(dayLabel(date))}">
+          <button class="go" data-act="going" data-date="${date}" data-slot="${s.id}" data-v="1" aria-pressed="${!!(t&&t.going===true)}"${past?' disabled':''}>Je fais le trajet</button>
+          <button data-act="going" data-date="${date}" data-slot="${s.id}" data-v="0" aria-pressed="${!!(t&&t.going===false)}"${past?' disabled':''}>Pas de trajet</button>
+        </div><span class="meta">${meta}</span></div>`;
+    });
+  }
+
+  /* 2. résultats et présence */
+  const trips=Object.entries(S.trips)
+    .map(([id,t])=>({id,t,start:startOf(t.date,t.slot).getTime()}))
+    .filter(x=>x.t.going&&sgPassed(x.t)&&x.start>Date.now()-3*86400000)
+    .sort((a,b)=>b.start-a.start);
+  let res='';
+  trips.forEach(({id,t,start})=>{
+    const o=outcome(t,id);if(!o)return;
+    const started=start<=Date.now();
+    let li='';
+    o.confirmed.forEach((u,i)=>{
+      const p=t.presence&&t.presence[u];
+      li+=`<div class="drow"><span class="meta" style="width:1.8em">${i+1}</span><span>${who(u)}</span>
+        <span class="pres" role="group" aria-label="Présence de ${esc(nameOf(u))}">
+          <button class="btn sm" data-act="pres" data-id="${esc(id)}" data-uid="${esc(u)}" data-v="1" aria-pressed="${p===true}"${started?'':' disabled'} style="${p===true?'background:var(--ok);border-color:var(--ok);color:#fff':''}">Présent</button>
+          <button class="btn sm" data-act="pres" data-id="${esc(id)}" data-uid="${esc(u)}" data-v="0" aria-pressed="${p===false}"${started?'':' disabled'} style="${p===false?'background:var(--bad);border-color:var(--bad);color:#fff':''}">Absent</button>
+        </span></div>`;
+    });
+    if(o.waiting.length)li+=`<div class="drow"><span class="meta">Liste d’attente : ${o.waiting.map(u=>esc(nameOf(u))).join(', ')}</span></div>`;
+    if(!o.confirmed.length&&!o.waiting.length)li='<div class="drow"><span class="meta">Personne n’a demandé de place.</span></div>';
+    res+=`<div class="tripres"><h3>${esc(dayLabel(t.date))}, ${slotOf(t.slot).label}</h3>${li}${started?'':'<div class="meta" style="color:var(--muted);font-size:14px">La présence se renseigne à partir de l’heure du départ.</div>'}</div>`;
+  });
+  if(!res)res='<div class="empty-s">Les résultats apparaîtront ici dès qu’un SG sera passé.</div>';
+
+  /* 3. passagers */
+  const uids=Object.keys(S.profiles).sort((a,b)=>baseName(a).localeCompare(baseName(b),'fr'));
+  let pax='';
+  uids.forEach(u=>{
+    const plan=S.profiles[u].plan||'none';
+    const r=rateOf(u);
+    let total=0;
+    Object.values(S.trips).forEach(t=>{if(t.presence&&t.presence[u]===true&&t.result&&t.result.confirmed.includes(u))total+=(t.price??S.cfg.price);});
+    pax+=`<tr><td>${esc(baseName(u))}</td>
+      <td><select class="plan" data-plan="${esc(u)}" aria-label="Abonnement de ${esc(baseName(u))}">${PLANS.map(p=>`<option value="${p.id}"${p.id===plan?' selected':''}>${p.label}</option>`).join('')}</select></td>
+      <td>${r.rate===null?'—':Math.round(r.rate*100)+' % ('+r.n+')'}</td>
+      <td class="r">${plan==='none'?eur(total):'Inclus'}</td></tr>`;
+  });
+  const paxTable=pax?`<div class="table-scroll"><table class="hist"><thead><tr><th>Passager</th><th>Abonnement</th><th>Présence</th><th class="r">Dû</th></tr></thead><tbody>${pax}</tbody></table></div>`
+    :'<div class="empty-s">Les passagers apparaissent ici après avoir créé leur compte.</div>';
+
+  return `
+  <section style="margin-top:28px">
+    <h2>Mes trajets</h2>
+    <p class="sub">Indique pour chaque créneau si tu fais le trajet. Les passagers ne voient que les trajets annoncés.</p>
+    ${grid}
+  </section>
+  <section>
+    <h2>Résultats et présence</h2>
+    <p class="sub">Les résultats sont figés par le serveur à l’heure du SG. Marque ensuite qui était présent : cela alimente le taux de présence et le prix des trajets.</p>
+    ${res}
+  </section>
+  <section>
+    <h2>Passagers et abonnements</h2>
+    ${paxTable}
+  </section>
+  <section>
+    <h2>Réglages</h2>
+    <div class="settings">
+      <label>Places disponibles<input type="number" min="1" max="8" value="${S.cfg.seats}" data-cfg="seats"></label>
+      <label>Prix d’un aller-retour (€)<input type="number" min="0" step="0.05" value="${S.cfg.price}" data-cfg="price"></label>
+      <label>Heure du SG (la veille)<input type="time" value="${esc(S.cfg.sgHour)}" data-cfg="sgHour"></label>
+    </div>
+  </section>`;
+}
+
+function authHtml(){
+  const signup=S.authMode==='signup';
+  return `<section style="margin-top:28px;max-width:420px">
+    <h2>${signup?'Créer mon compte':'Se connecter'}</h2>
+    <p class="sub">${signup?'Indique ton nom pour réserver. Le conducteur s’en sert pour t’attribuer ton abonnement et le prix de tes trajets.':'Connecte-toi pour demander une place dans la Racoon Mobile.'}</p>
+    <div class="settings" style="grid-template-columns:1fr">
+      ${signup?`<label>Prénom et nom<input type="text" id="a-name" data-auth="1" maxlength="60" autocomplete="name" value="${esc(S.draft.name)}"></label>`:''}
+      <label>Adresse e-mail<input type="email" id="a-email" data-auth="1" autocomplete="email" value="${esc(S.draft.email)}"></label>
+      <label>Mot de passe${signup?' (6 caractères minimum)':''}<input type="password" id="a-pw" data-auth="1" autocomplete="${signup?'new-password':'current-password'}"></label>
+    </div>
+    <p style="margin:16px 0 0;display:flex;gap:8px;flex-wrap:wrap">
+      <button class="btn primary" data-act="${signup?'signup':'login'}">${signup?'Créer mon compte':'Me connecter'}</button>
+      <button class="btn" data-act="authmode">${signup?'J’ai déjà un compte':'Créer un compte'}</button>
+    </p>
+    ${S.authMsg?`<div class="notice" style="margin-top:14px" role="alert">${esc(S.authMsg)}</div>`:''}
+  </section>`;
+}
+
+function setupHtml(){
+  return `<div class="notice warn" style="margin-top:28px">
+    <strong>Base de données non configurée.</strong><br>
+    Ouvre le fichier <code>index.html</code> et remplace <code>SUPABASE_URL</code> et <code>SUPABASE_KEY</code> par les valeurs de ton projet Supabase (Project Settings, API).
+  </div>`;
+}
+
+function render(){
+  const app=document.getElementById('app');
+  const ae=document.activeElement;
+  const keep=ae&&ae.dataset&&(ae.dataset.cfg||ae.dataset.plan||ae.dataset.acct||ae.dataset.auth);
+  if(keep&&ae.tagName==='INPUT'&&document.hasFocus())return; /* ne pas casser la saisie */
+  let body='',tabs='',board='';
+  if(!CONFIGURED){
+    body=setupHtml();
+  }else if(!S.booted){
+    body='<div class="notice">Chargement…</div>';
+  }else if(!S.me){
+    body=authHtml();
+  }else if(!S.loaded){
+    body='<div class="notice">Chargement des trajets…</div>';
+  }else{
+    tabs=`<div class="tabs" role="tablist">
+        <button class="tab" role="tab" data-act="tab" data-tab="passager" aria-selected="${S.tab==='passager'}">Trajets</button>
+        <button class="tab" role="tab" data-act="tab" data-tab="compte" aria-selected="${S.tab==='compte'}">Mon compte</button>
+        ${S.canEdit?`<button class="tab" role="tab" data-act="tab" data-tab="conducteur" aria-selected="${S.tab==='conducteur'}">Conducteur</button>`:''}
+        <button class="tab" data-act="logout">Déconnexion</button>
+      </div>`;
+    if(S.tab==='passager'&&S.profiles[S.me])board=boardHtml();
+    body=S.tab==='conducteur'&&S.canEdit?driverHtml():(S.tab==='compte'?compteHtml():passengerHtml());
+  }
+  app.innerHTML=`
+    <header class="top">
+      <div class="brand">${MASK}<span>La Racoon Mobile</span></div>
+      ${tabs}
+    </header>
+    ${board}
+    ${body}`;
+}
+
+/* ---------- événements ---------- */
+document.addEventListener('click',e=>{
+  const b=e.target.closest('[data-act]');if(!b||b.disabled)return;
+  const a=b.dataset.act;
+  if(a==='tab'){S.tab=b.dataset.tab;render();}
+  else if(a==='req'&&S.me)toggleRequest(b.dataset.id);
+  else if(a==='saveacct')saveAccount(val('acct-name'));
+  else if(a==='going')setGoing(b.dataset.date,b.dataset.slot,b.dataset.v==='1');
+  else if(a==='pres')setPresence(b.dataset.id,b.dataset.uid,b.dataset.v==='1');
+  else if(a==='login')doLogin();
+  else if(a==='signup')doSignup();
+  else if(a==='authmode'){S.authMode=S.authMode==='login'?'signup':'login';S.authMsg='';render();}
+  else if(a==='logout')doLogout();
+});
+document.addEventListener('keydown',e=>{
+  if(e.key!=='Enter')return;
+  if(e.target.id==='acct-name')saveAccount(e.target.value);
+  else if(e.target.dataset&&e.target.dataset.auth){S.authMode==='signup'?doSignup():doLogin();}
+});
+document.addEventListener('change',e=>{
+  const el=e.target;
+  if(el.dataset.plan){setPlan(el.dataset.plan,el.value);}
+  else if(el.dataset.cfg){
+    const k=el.dataset.cfg;
+    if(k==='sgHour'){if(el.value)setCfg(k,el.value);}
+    else{const v=Number(el.value);if(!isNaN(v)&&v>=0)setCfg(k,k==='seats'?Math.max(1,Math.min(8,Math.round(v))):v);}
+  }
+});
+document.addEventListener('toggle',e=>{
+  const d=e.target;if(!d.dataset||!d.dataset.trip)return;
+  if(d.open)S.open.add(d.dataset.trip);else S.open.delete(d.dataset.trip);
+},true);
+
+/* compte à rebours + passage de l'heure du SG */
+setInterval(()=>{
+  document.querySelectorAll('[data-until]').forEach(el=>{el.textContent=remaining(Number(el.dataset.until)-Date.now());});
+  const now=Date.now();
+  const crossed=Object.values(S.trips).some(t=>{
+    if(!t.going)return false;
+    const sg=sgOf(t.date).getTime(),st=startOf(t.date,t.slot).getTime();
+    return (sg>S.lastTick&&sg<=now)||(st>S.lastTick&&st<=now);
+  });
+  S.lastTick=now;
+  if(crossed){render();freezeDue();}
+},15000);
+/* filet de sécurité si la mise à jour en direct est coupée */
+setInterval(()=>{if(S.me&&!document.hidden)loadAll();},45000);
+
+/* ---------- démarrage ---------- */
+render();
+if(CONFIGURED){
+  sb.auth.onAuthStateChange((event,session)=>{
+    /* pas d'appel à Supabase directement dans ce callback : on décale */
+    setTimeout(()=>{
+      S.booted=true;
+      S.session=session;
+      const prev=S.me;
+      S.me=session?session.user.id:null;
+      if(S.me){
+        if(S.me!==prev){S.loaded=false;S.triedAuto=false;S.autoTab=false;S.tab='passager';}
+        subscribe();
+        if(event!=='TOKEN_REFRESHED'||S.me!==prev)loadAll();
+        render();
+      }else{
+        unsubscribe();
+        S.trips={};S.profiles={};S.requests={};S.loaded=false;S.canEdit=false;S.authMsg=S.authMsg||'';
+        render();
+      }
+    },0);
+  });
+}
+</script>
+</body>
+</html>
